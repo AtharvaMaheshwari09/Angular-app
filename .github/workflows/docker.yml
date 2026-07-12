@@ -79,7 +79,7 @@ jobs:
 
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-          docker pull $REGISTRY/$IMAGE_NAME:$TAG
+          docker pull ghcr.io/atharvamaheshwari09/angular-app:${{ github.sha }}
 
           docker stop angular-app || true
           docker rm angular-app || true
@@ -88,7 +88,7 @@ jobs:
             --name angular-app \
             --restart unless-stopped \
             -p 80:80 \
-            $REGISTRY/$IMAGE_NAME:$TAG
+            ghcr.io/atharvamaheshwari09/angular-app:${{ github.sha }}
 
           docker ps
           docker images
