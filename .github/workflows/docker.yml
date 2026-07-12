@@ -30,6 +30,7 @@ jobs:
       - name: Build Docker Image
         run: |
           docker build -t $REGISTRY/$IMAGE_NAME:$TAG .
+          docker images
 
       - name: Push Docker Image
         run: |
@@ -47,6 +48,31 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
+      - name: Debug Secrets
+        run: |
+          echo "Checking GitHub Secrets..."
+
+          echo "EC2_USER:"
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "EMPTY"
+          else
+            echo "EXISTS"
+          fi
+
+          echo "EC2_HOST:"
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "EMPTY"
+          else
+            echo "EXISTS"
+          fi
+
+          echo "EC2_SSH_KEY:"
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "EMPTY"
+          else
+            echo "EXISTS"
+          fi
+
       - name: Deploy Application
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
@@ -60,8 +86,8 @@ jobs:
 
           docker run -d \
             --name angular-app \
-            -p 80:80 \
             --restart unless-stopped \
+            -p 80:80 \
             $REGISTRY/$IMAGE_NAME:$TAG
 
           docker ps
