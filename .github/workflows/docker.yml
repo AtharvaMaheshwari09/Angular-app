@@ -1,72 +1,70 @@
-name: Build Docker Image with Native Commands
+name: Build and Deploy Angular
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/Angular-app
+  IMAGE_NAME: ${{ github.repository_owner }}/angular-app
   TAG: ${{ github.sha }}
 
 jobs:
   build:
     name: Build and Push Image
     runs-on: ubuntu-latest
-    
-    steps:
 
-      - name: Checkout repository
+    steps:
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Login to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Run Docker Build
+      - name: Build Docker Image
         run: |
-          docker build . -t $REGISTRY/$IMAGE_NAME:$TAG
-          echo "Docker build completed successfully!"
-          docker images
+          docker build -t $REGISTRY/$IMAGE_NAME:$TAG .
+
+      - name: Push Docker Image
+        run: |
           docker push $REGISTRY/$IMAGE_NAME:$TAG
 
   deploy:
-    name: Deploy to Server
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
-      - name: Deploy to EC2
+      - name: Deploy Application
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
 
-            # Clean Docker
-            sudo docker system prune -af
-            sudo docker volume prune -f
-            
-            # Pull latest image
-            sudo docker pull $REGISTRY/$IMAGE_NAME:$TAG
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
 
-            # Stop and remove old container (ignore errors)
-            sudo docker rm -f demo-app-angular || true
-            
-            # Run new container
-            sudo docker run -d \
-              --name demo-app-angular \
-              -p 4200:4200 \
-              $REGISTRY/$IMAGE_NAME:$TAG
+          docker pull $REGISTRY/$IMAGE_NAME:$TAG
 
-            sudo docker ps -a
-            echo "Deployment completed successfully!"
-            sudo docker images
+          docker stop angular-app || true
+          docker rm angular-app || true
+
+          docker run -d \
+            --name angular-app \
+            -p 80:80 \
+            --restart unless-stopped \
+            $REGISTRY/$IMAGE_NAME:$TAG
+
+          docker ps
+          docker images
+
           EOF
