@@ -11,7 +11,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/angular-app
+  IMAGE_NAME: atharvamaheshwari09/angular-app
   TAG: ${{ github.sha }}
 
 jobs:
